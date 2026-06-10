@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1d9e75">
+<title>提出チェック</title>
+<style>
+  :root { --green:#1d9e75; --green-d:#0f6e56; --gray:#5f5e5a; --line:#e3e1da; --red:#c0392b; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Segoe UI", sans-serif;
+    background: #f4f2ec; color: #2c2c2a; min-height: 100vh;
+  }
+  header {
+    background: var(--green); color: #fff; padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  header button { background: rgba(255,255,255,.2); border: none; color: #fff;
+    width: 38px; height: 38px; border-radius: 10px; font-size: 18px; }
+  main { padding: 16px; max-width: 520px; margin: 0 auto; }
+  .scanbox {
+    position: relative; width: 100%; aspect-ratio: 1/1; background: #000;
+    border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center;
+  }
+  #video { width: 100%; height: 100%; object-fit: cover; display: none; }
+  .placeholder { color: #888; text-align: center; padding: 20px; font-size: 14px; }
+  .frame { position: absolute; inset: 18%; border: 3px solid rgba(255,255,255,.8);
+    border-radius: 14px; pointer-events: none; display: none; }
+  .btn {
+    width: 100%; padding: 17px; border: none; border-radius: 14px; font-size: 17px;
+    font-weight: 600; margin-top: 14px; color: #fff; background: var(--green);
+  }
+  .btn.stop { background: var(--gray); }
+  .btn:active { opacity: .85; }
+  .result {
+    margin-top: 16px; padding: 18px; border-radius: 14px; background: #fff;
+    border: 1px solid var(--line); text-align: center; min-height: 70px;
+    display: flex; flex-direction: column; justify-content: center;
+  }
+  .result .name { font-size: 24px; font-weight: 700; }
+  .result .meta { font-size: 13px; color: var(--gray); margin-top: 4px; }
+  .result.ok { background: #e9f7f1; border-color: #9fe1cb; }
+  .result.dup { background: #fef6e3; border-color: #fac775; }
+  .result.err { background: #fdeceb; border-color: #f0c0bf; }
+  .log { margin-top: 22px; }
+  .log h2 { font-size: 14px; color: var(--gray); margin: 0 0 8px; font-weight: 600; }
+  .log ul { list-style: none; margin: 0; padding: 0; }
+  .log li { display: flex; justify-content: space-between; padding: 10px 12px;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px; font-size: 14px; }
+  .log li .t { color: var(--gray); font-size: 12px; }
+  .log li.pending .sync { color: #b8860b; }
+  .log li.synced .sync { color: var(--green-d); }
+  .log li.failed .sync { color: var(--red); }
+  .log li .sync { font-size: 12px; }
+  dialog { border: none; border-radius: 16px; padding: 0; width: 90%; max-width: 420px; }
+  .dlg { padding: 20px; }
+  .dlg h3 { margin: 0 0 4px; font-size: 17px; }
+  .dlg p { font-size: 13px; color: var(--gray); margin: 0 0 14px; line-height: 1.6; }
+  .dlg input { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+  .dlg label { display:block; font-size:13px; font-weight:600; margin: 12px 0 6px; }
+  .dlg .row { display: flex; gap: 8px; margin-top: 16px; }
+  .dlg .row button { flex: 1; padding: 13px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; }
+  .dlg .save { background: var(--green); color: #fff; }
+  .dlg .cancel { background: #eee; color: #333; }
+  .toggle { display:flex; align-items:center; gap:8px; font-size:14px; margin-top:14px; }
+  .warn { background:#fdeceb; color:var(--red); padding:10px 12px; border-radius:10px; font-size:13px; margin-top:12px; display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>提出チェック</h1>
+  <button id="settingsBtn" aria-label="設定">⚙</button>
+</header>
+<main>
+  <div class="scanbox">
+    <video id="video" playsinline muted></video>
+    <div class="placeholder" id="placeholder">カメラは停止中です<br>下のボタンで起動します</div>
+    <div class="frame" id="frame"></div>
+  </div>
+  <button class="btn" id="toggleBtn">カメラを起動</button>
+  <div class="warn" id="warn"></div>
+
+  <div class="result" id="result">
+    <div class="name" style="color:#888;font-size:15px;font-weight:500;">QRコードを読み取ってください</div>
+  </div>
+
+  <div class="log">
+    <h2>今日の記録 <span id="count">(0件)</span></h2>
+    <ul id="logList"></ul>
+  </div>
+</main>
+
+<dialog id="settingsDlg">
+  <div class="dlg">
+    <h3>設定</h3>
+    <p>スプレッドシートと連携するための「Apps Script の URL」を貼り付けてください。<br>（セットアップ手順の手順4で取得した <code>https://script.google.com/.../exec</code> です）</p>
+    <label for="urlInput">連携URL</label>
+    <input id="urlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+    <div class="toggle">
+      <input type="checkbox" id="soundChk" checked>
+      <label for="soundChk" style="margin:0;font-weight:400;">読み取り時に音を鳴らす</label>
+    </div>
+    <div class="row">
+      <button class="cancel" id="cancelBtn">キャンセル</button>
+      <button class="save" id="saveBtn">保存</button>
+    </div>
+  </div>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const video = $('video'), placeholder = $('placeholder'), frame = $('frame');
+const toggleBtn = $('toggleBtn'), result = $('result'), logList = $('logList');
+const warn = $('warn'), count = $('count');
+const canvas = document.createElement('canvas');
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+let stream = null, scanning = false, rafId = null;
+let lastValue = '', lastTime = 0;          // 連続読み取りの重複防止
+let log = [];                              // 画面上の記録
+
+// ---- 設定（端末に保存）----
+function getCfg() {
+  return {
+    url: localStorage.getItem('gas_url') || '',
+    sound: localStorage.getItem('sound') !== 'off'
+  };
+}
+
+// ---- カメラ ----
+async function startCamera() {
+  warn.style.display = 'none';
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' } }, audio: false
+    });
+    video.srcObject = stream;
+    await video.play();
+    video.style.display = 'block';
+    placeholder.style.display = 'none';
+    frame.style.display = 'block';
+    toggleBtn.textContent = 'カメラを停止';
+    toggleBtn.classList.add('stop');
+    scanning = true;
+    tick();
+  } catch (e) {
+    let msg = 'カメラを起動できませんでした。';
+    if (e.name === 'NotAllowedError') msg = 'カメラの使用が許可されていません。ブラウザの設定で許可してください。';
+    else if (location.protocol !== 'https:' && location.hostname !== 'localhost')
+      msg = 'カメラは https:// のページでのみ使えます。配信URLをご確認ください。';
+    warn.textContent = msg; warn.style.display = 'block';
+  }
+}
+function stopCamera() {
+  scanning = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = null;
+  video.style.display = 'none';
+  placeholder.style.display = 'block';
+  frame.style.display = 'none';
+  toggleBtn.textContent = 'カメラを起動';
+  toggleBtn.classList.remove('stop');
+}
+toggleBtn.onclick = () => scanning ? stopCamera() : startCamera();
+
+// ---- 読み取りループ ----
+function tick() {
+  if (!scanning) return;
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+    if (code && code.data) handleScan(code.data.trim());
+  }
+  rafId = requestAnimationFrame(tick);
+}
+
+// ---- 1件読み取ったときの処理 ----
+function handleScan(value) {
+  const now = Date.now();
+  // 同じQRを3秒以内に連続で読んだら無視
+  if (value === lastValue && now - lastTime < 3000) return;
+  lastValue = value; lastTime = now;
+
+  // QRの中身は「生徒ID,名前」を想定。カンマが無ければ全体をIDとして扱う
+  const [id, ...rest] = value.split(',');
+  const name = rest.join(',').trim();
+  const sid = id.trim();
+  const ts = new Date();
+
+  beep();
+  showResult('ok', name || sid, sid, ts);
+
+  const entry = { id: sid, name, ts, status: 'pending' };
+  log.unshift(entry);
+  renderLog();
+  sendToSheet(entry);
+}
+
+function showResult(kind, big, sub, ts) {
+  result.className = 'result ' + kind;
+  const time = ts.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  result.innerHTML = `<div class="name">${esc(big)}</div><div class="meta">${esc(sub)} ・ ${time}</div>`;
+}
+
+function renderLog() {
+  count.textContent = `(${log.length}件)`;
+  logList.innerHTML = log.slice(0, 30).map(e => {
+    const time = e.ts.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
+    const sync = e.status === 'synced' ? '✓ 記録済'
+               : e.status === 'failed' ? '⚠ 未送信' : '… 送信中';
+    return `<li class="${e.status}"><span>${esc(e.name || e.id)}</span>
+      <span><span class="t">${time}</span> <span class="sync">${sync}</span></span></li>`;
+  }).join('');
+}
+
+// ---- スプレッドシートへ送信 ----
+async function sendToSheet(entry) {
+  const cfg = getCfg();
+  if (!cfg.url) {
+    entry.status = 'failed'; renderLog();
+    warn.textContent = '連携URLが未設定です。右上の ⚙ から設定してください。';
+    warn.style.display = 'block';
+    return;
+  }
+  try {
+    const res = await fetch(cfg.url, {
+      method: 'POST',
+      body: JSON.stringify({ id: entry.id, name: entry.name, ts: entry.ts.toISOString() })
+    });
+    const data = await res.json().catch(() => ({ status: 'ok' }));
+    entry.status = data.status === 'error' ? 'failed' : 'synced';
+  } catch (e) {
+    entry.status = 'failed';
+  }
+  renderLog();
+}
+
+// ---- 効果音 ----
+function beep() {
+  if (!getCfg().sound) return;
+  try {
+    const ac = new (window.AudioContext || window.webkitAudioContext)();
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.frequency.value = 880; o.type = 'sine';
+    g.gain.setValueAtTime(.001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.3, ac.currentTime + .01);
+    g.gain.exponentialRampToValueAtTime(.001, ac.currentTime + .15);
+    o.start(); o.stop(ac.currentTime + .15);
+  } catch (e) {}
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+// ---- 設定ダイアログ ----
+const dlg = $('settingsDlg');
+$('settingsBtn').onclick = () => {
+  const cfg = getCfg();
+  $('urlInput').value = cfg.url;
+  $('soundChk').checked = cfg.sound;
+  dlg.showModal();
+};
+$('cancelBtn').onclick = () => dlg.close();
+$('saveBtn').onclick = () => {
+  localStorage.setItem('gas_url', $('urlInput').value.trim());
+  localStorage.setItem('sound', $('soundChk').checked ? 'on' : 'off');
+  dlg.close();
+  warn.style.display = 'none';
+};
+
+// 初回起動時、URL未設定なら案内
+if (!getCfg().url) {
+  warn.textContent = '初回設定: 右上の ⚙ からスプレッドシートの連携URLを登録してください。';
+  warn.style.display = 'block';
+}
+</script>
+</body>
+</html>

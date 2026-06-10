@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QRコード作成 — 提出チェック</title>
+<style>
+  :root { --green:#1d9e75; --gray:#5f5e5a; --line:#e3e1da; }
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Segoe UI", sans-serif;
+    margin: 0; background: #f4f2ec; color: #2c2c2a; }
+  header { background: var(--green); color: #fff; padding: 14px 16px; font-size: 17px; font-weight: 600; }
+  main { max-width: 800px; margin: 0 auto; padding: 16px; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 15px; margin: 0 0 8px; }
+  .card p { font-size: 13px; color: var(--gray); margin: 0 0 12px; line-height: 1.6; }
+  textarea { width: 100%; min-height: 160px; padding: 12px; border: 1px solid var(--line);
+    border-radius: 10px; font-size: 14px; font-family: ui-monospace, monospace; resize: vertical; }
+  button { background: var(--green); color: #fff; border: none; padding: 13px 20px;
+    border-radius: 10px; font-size: 15px; font-weight: 600; margin-top: 12px; }
+  button.sub { background: #eee; color: #333; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .qr { border: 1px solid var(--line); border-radius: 12px; padding: 14px 10px; text-align: center; background:#fff; }
+  .qr canvas, .qr img { width: 130px !important; height: 130px !important; }
+  .qr .nm { font-size: 14px; font-weight: 700; margin-top: 8px; }
+  .qr .id { font-size: 12px; color: var(--gray); }
+  @media print {
+    header, .card, button { display: none !important; }
+    body { background: #fff; }
+    .qr { break-inside: avoid; border-color:#ccc; }
+  }
+</style>
+</head>
+<body>
+<header>QRコード作成</header>
+<main>
+  <div class="card">
+    <h2>名簿を入力</h2>
+    <p>1行に1人ずつ「生徒ID,名前」の形式で入力してください。<br>
+       例: <code>2026-A-01,山田太郎</code></p>
+    <textarea id="input">2026-A-01,山田太郎
+2026-A-02,佐藤花子
+2026-A-03,鈴木一郎</textarea>
+    <div>
+      <button id="genBtn">QRコードを作成</button>
+      <button class="sub" id="printBtn">印刷する</button>
+    </div>
+  </div>
+
+  <div class="grid" id="output"></div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+function generate() {
+  const out = $('output');
+  out.innerHTML = '';
+  const lines = $('input').value.split('\n').map(l => l.trim()).filter(Boolean);
+  lines.forEach(line => {
+    const [id, ...rest] = line.split(',');
+    const name = rest.join(',').trim();
+    const card = document.createElement('div');
+    card.className = 'qr';
+    const box = document.createElement('div');
+    card.appendChild(box);
+    // QRの中身は名簿の行そのまま（「生徒ID,名前」）
+    new QRCode(box, { text: line, width: 130, height: 130, correctLevel: QRCode.CorrectLevel.M });
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = name || id.trim();
+    const sid = document.createElement('div'); sid.className = 'id'; sid.textContent = id.trim();
+    card.appendChild(nm); card.appendChild(sid);
+    out.appendChild(card);
+  });
+}
+
+$('genBtn').onclick = generate;
+$('printBtn').onclick = () => window.print();
+generate();
+</script>
+</body>
+</html>
