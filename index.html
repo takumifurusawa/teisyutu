@@ -111,7 +111,7 @@
   </div>
 </dialog>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script>
 const $ = id => document.getElementById(id);
 const video = $('video'), placeholder = $('placeholder'), frame = $('frame');
@@ -133,27 +133,43 @@ function getCfg() {
 }
 
 // ---- カメラ ----
+let starting = false;   // 起動処理の二重実行を防ぐ
 async function startCamera() {
+  if (starting || stream) return;   // すでに起動中／起動済みなら何もしない
+  starting = true;
   warn.style.display = 'none';
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
+    const s = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' } }, audio: false
     });
+    stream = s;
     video.srcObject = stream;
-    await video.play();
+    try { await video.play(); } catch (_) { /* iOSではplay()が拒否されても再生は続くため無視 */ }
     video.style.display = 'block';
     placeholder.style.display = 'none';
     frame.style.display = 'block';
     toggleBtn.textContent = 'カメラを停止';
     toggleBtn.classList.add('stop');
     scanning = true;
+    warn.style.display = 'none';   // 起動成功時は警告を必ず消す
     tick();
   } catch (e) {
-    let msg = 'カメラを起動できませんでした。';
-    if (e.name === 'NotAllowedError') msg = 'カメラの使用が許可されていません。ブラウザの設定で許可してください。';
-    else if (location.protocol !== 'https:' && location.hostname !== 'localhost')
+    if (stream) return;   // 別の処理で既に起動済みなら警告を出さない
+    let msg;
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost')
       msg = 'カメラは https:// のページでのみ使えます。配信URLをご確認ください。';
-    warn.textContent = msg; warn.style.display = 'block';
+    else if (e.name === 'NotAllowedError')
+      msg = 'カメラの使用が許可されていません。ブラウザのアドレスバーのカメラ印、またはアプリ内ブラウザで開いていないかを確認し、Safari/Chromeで開いてください。';
+    else if (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')
+      msg = 'カメラが見つかりませんでした。カメラ付きの端末・ブラウザで開いてください。';
+    else if (e.name === 'NotReadableError')
+      msg = 'カメラが他のアプリで使用中です。Zoomやビデオ通話など、カメラを使う他のアプリ・タブを閉じてから再度お試しください。';
+    else
+      msg = 'カメラを起動できませんでした。';
+    warn.textContent = msg + '（詳細: ' + (e.name || '不明') + '）';
+    warn.style.display = 'block';
+  } finally {
+    starting = false;
   }
 }
 function stopCamera() {
@@ -172,6 +188,11 @@ toggleBtn.onclick = () => scanning ? stopCamera() : startCamera();
 // ---- 読み取りループ ----
 function tick() {
   if (!scanning) return;
+  if (typeof jsQR !== 'function') {   // ライブラリが読み込めていない場合の保険
+    warn.textContent = '読み取り部品(jsQR)を読み込めませんでした。通信環境を確認し、ページを再読み込みしてください。';
+    warn.style.display = 'block';
+    return;
+  }
   if (video.readyState === video.HAVE_ENOUGH_DATA) {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
