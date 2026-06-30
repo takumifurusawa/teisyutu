@@ -7,73 +7,86 @@
 <meta name="theme-color" content="#1d9e75">
 <title>提出チェック</title>
 <style>
-  :root { --green:#1d9e75; --green-d:#0f6e56; --gray:#5f5e5a; --line:#e3e1da; --red:#c0392b; }
+  :root { --green:#1d9e75; --green-d:#0f6e56; --gray:#5f5e5a; --line:#e3e1da; --red:#c0392b; --amber:#b8860b; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body {
-    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Segoe UI", sans-serif;
-    background: #f4f2ec; color: #2c2c2a; min-height: 100vh;
-  }
-  header {
-    background: var(--green); color: #fff; padding: 14px 16px;
-    display: flex; align-items: center; justify-content: space-between;
-    position: sticky; top: 0; z-index: 10;
-  }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Segoe UI", sans-serif;
+    background: #f4f2ec; color: #2c2c2a; min-height: 100vh; }
+  header { background: var(--green); color: #fff; padding: 14px 16px;
+    display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
   header h1 { font-size: 17px; margin: 0; font-weight: 600; }
+  header .right { display: flex; align-items: center; gap: 10px; }
+  header .mode { background: rgba(255,255,255,.2); padding: 5px 10px; border-radius: 8px; font-size: 13px; }
   header button { background: rgba(255,255,255,.2); border: none; color: #fff;
     width: 38px; height: 38px; border-radius: 10px; font-size: 18px; }
   main { padding: 16px; max-width: 520px; margin: 0 auto; }
-  .scanbox {
-    position: relative; width: 100%; aspect-ratio: 1/1; background: #000;
-    border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center;
-  }
+  .scanbox { position: relative; width: 100%; aspect-ratio: 1/1; background: #000;
+    border-radius: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
   #video { width: 100%; height: 100%; object-fit: cover; display: none; }
   .placeholder { color: #888; text-align: center; padding: 20px; font-size: 14px; }
   .frame { position: absolute; inset: 18%; border: 3px solid rgba(255,255,255,.8);
     border-radius: 14px; pointer-events: none; display: none; }
-  .btn {
-    width: 100%; padding: 17px; border: none; border-radius: 14px; font-size: 17px;
-    font-weight: 600; margin-top: 14px; color: #fff; background: var(--green);
-  }
+  .btn { width: 100%; padding: 17px; border: none; border-radius: 14px; font-size: 17px;
+    font-weight: 600; margin-top: 14px; color: #fff; background: var(--green); }
   .btn.stop { background: var(--gray); }
   .btn:active { opacity: .85; }
-  .result {
-    margin-top: 16px; padding: 18px; border-radius: 14px; background: #fff;
+  .result { margin-top: 16px; padding: 18px; border-radius: 14px; background: #fff;
     border: 1px solid var(--line); text-align: center; min-height: 70px;
-    display: flex; flex-direction: column; justify-content: center;
-  }
+    display: flex; flex-direction: column; justify-content: center; }
   .result .name { font-size: 24px; font-weight: 700; }
   .result .meta { font-size: 13px; color: var(--gray); margin-top: 4px; }
   .result.ok { background: #e9f7f1; border-color: #9fe1cb; }
   .result.dup { background: #fef6e3; border-color: #fac775; }
   .result.err { background: #fdeceb; border-color: #f0c0bf; }
+  /* 点数入力パネル */
+  .score { margin-top: 16px; padding: 18px; border-radius: 14px; background: #fff;
+    border: 2px solid var(--green); display: none; }
+  .score.show { display: block; }
+  .score .who { font-size: 20px; font-weight: 700; text-align: center; }
+  .score .lbl { font-size: 13px; color: var(--gray); text-align: center; margin: 2px 0 12px; }
+  .score input { width: 100%; padding: 16px; font-size: 28px; text-align: center;
+    border: 1px solid var(--line); border-radius: 12px; font-weight: 700; }
+  .score .row { display: flex; gap: 8px; margin-top: 12px; }
+  .score .row button { flex: 1; padding: 15px; border: none; border-radius: 12px; font-size: 16px; font-weight: 600; }
+  .score .ok { background: var(--green); color: #fff; }
+  .score .cancel { background: #eee; color: #333; }
   .log { margin-top: 22px; }
   .log h2 { font-size: 14px; color: var(--gray); margin: 0 0 8px; font-weight: 600; }
   .log ul { list-style: none; margin: 0; padding: 0; }
   .log li { display: flex; justify-content: space-between; padding: 10px 12px;
     background: #fff; border: 1px solid var(--line); border-radius: 10px; margin-bottom: 6px; font-size: 14px; }
   .log li .t { color: var(--gray); font-size: 12px; }
-  .log li.pending .sync { color: #b8860b; }
+  .log li .val { font-weight: 700; margin-left: 8px; }
   .log li.synced .sync { color: var(--green-d); }
+  .log li.duplicate .sync { color: var(--amber); }
   .log li.failed .sync { color: var(--red); }
   .log li .sync { font-size: 12px; }
   dialog { border: none; border-radius: 16px; padding: 0; width: 90%; max-width: 420px; }
   .dlg { padding: 20px; }
   .dlg h3 { margin: 0 0 4px; font-size: 17px; }
   .dlg p { font-size: 13px; color: var(--gray); margin: 0 0 14px; line-height: 1.6; }
-  .dlg input { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
-  .dlg label { display:block; font-size:13px; font-weight:600; margin: 12px 0 6px; }
-  .dlg .row { display: flex; gap: 8px; margin-top: 16px; }
+  .dlg input[type=url] { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+  .dlg label.h { display:block; font-size:13px; font-weight:600; margin: 14px 0 6px; }
+  .seg { display: flex; gap: 8px; }
+  .seg label { flex: 1; }
+  .seg input { display: none; }
+  .seg span { display: block; text-align: center; padding: 12px; border: 1px solid var(--line);
+    border-radius: 10px; font-size: 15px; }
+  .seg input:checked + span { background: var(--green); color: #fff; border-color: var(--green); font-weight: 600; }
+  .dlg .toggle { display:flex; align-items:center; gap:8px; font-size:14px; margin-top:14px; }
+  .dlg .row { display: flex; gap: 8px; margin-top: 18px; }
   .dlg .row button { flex: 1; padding: 13px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; }
   .dlg .save { background: var(--green); color: #fff; }
   .dlg .cancel { background: #eee; color: #333; }
-  .toggle { display:flex; align-items:center; gap:8px; font-size:14px; margin-top:14px; }
   .warn { background:#fdeceb; color:var(--red); padding:10px 12px; border-radius:10px; font-size:13px; margin-top:12px; display:none; }
 </style>
 </head>
 <body>
 <header>
   <h1>提出チェック</h1>
-  <button id="settingsBtn" aria-label="設定">⚙</button>
+  <div class="right">
+    <span class="mode" id="modeBadge">チェック</span>
+    <button id="settingsBtn" aria-label="設定">⚙</button>
+  </div>
 </header>
 <main>
   <div class="scanbox">
@@ -83,6 +96,17 @@
   </div>
   <button class="btn" id="toggleBtn">カメラを起動</button>
   <div class="warn" id="warn"></div>
+
+  <!-- 点数入力パネル（点数モードで読み取ったときに出る） -->
+  <div class="score" id="scorePanel">
+    <div class="who" id="scoreWho">　</div>
+    <div class="lbl">点数を入力してください</div>
+    <input id="scoreInput" type="number" inputmode="decimal" placeholder="例: 85">
+    <div class="row">
+      <button class="cancel" id="scoreCancel">キャンセル</button>
+      <button class="ok" id="scoreSave">記録する</button>
+    </div>
+  </div>
 
   <div class="result" id="result">
     <div class="name" style="color:#888;font-size:15px;font-weight:500;">QRコードを読み取ってください</div>
@@ -97,12 +121,19 @@
 <dialog id="settingsDlg">
   <div class="dlg">
     <h3>設定</h3>
-    <p>スプレッドシートと連携するための「Apps Script の URL」を貼り付けてください。<br>（セットアップ手順の手順4で取得した <code>https://script.google.com/.../exec</code> です）</p>
-    <label for="urlInput">連携URL</label>
+    <p>スプレッドシート連携の「Apps Script の URL」を貼り付けてください（末尾が <code>/exec</code>）。</p>
+    <label class="h" for="urlInput">連携URL</label>
     <input id="urlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec">
+
+    <label class="h">記録のしかた</label>
+    <div class="seg">
+      <label><input type="radio" name="mode" value="check"><span>チェックのみ</span></label>
+      <label><input type="radio" name="mode" value="score"><span>点数を入力</span></label>
+    </div>
+
     <div class="toggle">
       <input type="checkbox" id="soundChk" checked>
-      <label for="soundChk" style="margin:0;font-weight:400;">読み取り時に音を鳴らす</label>
+      <label for="soundChk" style="font-weight:400;">読み取り時に音を鳴らす</label>
     </div>
     <div class="row">
       <button class="cancel" id="cancelBtn">キャンセル</button>
@@ -116,26 +147,31 @@
 const $ = id => document.getElementById(id);
 const video = $('video'), placeholder = $('placeholder'), frame = $('frame');
 const toggleBtn = $('toggleBtn'), result = $('result'), logList = $('logList');
-const warn = $('warn'), count = $('count');
+const warn = $('warn'), count = $('count'), modeBadge = $('modeBadge');
+const scorePanel = $('scorePanel'), scoreWho = $('scoreWho'), scoreInput = $('scoreInput');
 const canvas = document.createElement('canvas');
 const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-let stream = null, scanning = false, rafId = null;
-let lastValue = '', lastTime = 0;          // 連続読み取りの重複防止
-let log = [];                              // 画面上の記録
+let stream = null, scanning = false, paused = false, rafId = null, starting = false;
+let lastValue = '', lastTime = 0;
+let log = [];
+let pending = null;   // 点数入力中の生徒 {id,name}
 
 // ---- 設定（端末に保存）----
 function getCfg() {
   return {
     url: localStorage.getItem('gas_url') || '',
+    mode: localStorage.getItem('mode') || 'check',
     sound: localStorage.getItem('sound') !== 'off'
   };
 }
+function applyMode() {
+  modeBadge.textContent = getCfg().mode === 'score' ? '点数' : 'チェック';
+}
 
 // ---- カメラ ----
-let starting = false;   // 起動処理の二重実行を防ぐ
 async function startCamera() {
-  if (starting || stream) return;   // すでに起動中／起動済みなら何もしない
+  if (starting || stream) return;
   starting = true;
   warn.style.display = 'none';
   try {
@@ -144,28 +180,27 @@ async function startCamera() {
     });
     stream = s;
     video.srcObject = stream;
-    try { await video.play(); } catch (_) { /* iOSではplay()が拒否されても再生は続くため無視 */ }
+    try { await video.play(); } catch (_) {}
     video.style.display = 'block';
     placeholder.style.display = 'none';
     frame.style.display = 'block';
     toggleBtn.textContent = 'カメラを停止';
     toggleBtn.classList.add('stop');
-    scanning = true;
-    warn.style.display = 'none';   // 起動成功時は警告を必ず消す
+    scanning = true; paused = false;
+    warn.style.display = 'none';
     tick();
   } catch (e) {
-    if (stream) return;   // 別の処理で既に起動済みなら警告を出さない
+    if (stream) return;
     let msg;
     if (location.protocol !== 'https:' && location.hostname !== 'localhost')
       msg = 'カメラは https:// のページでのみ使えます。配信URLをご確認ください。';
     else if (e.name === 'NotAllowedError')
-      msg = 'カメラの使用が許可されていません。ブラウザのアドレスバーのカメラ印、またはアプリ内ブラウザで開いていないかを確認し、Safari/Chromeで開いてください。';
+      msg = 'カメラの使用が許可されていません。アプリ内ブラウザではなくSafari/Chromeで開いてください。';
     else if (e.name === 'NotFoundError' || e.name === 'OverconstrainedError')
       msg = 'カメラが見つかりませんでした。カメラ付きの端末・ブラウザで開いてください。';
     else if (e.name === 'NotReadableError')
-      msg = 'カメラが他のアプリで使用中です。Zoomやビデオ通話など、カメラを使う他のアプリ・タブを閉じてから再度お試しください。';
-    else
-      msg = 'カメラを起動できませんでした。';
+      msg = 'カメラが他のアプリで使用中です。他のアプリ・タブを閉じてお試しください。';
+    else msg = 'カメラを起動できませんでした。';
     warn.textContent = msg + '（詳細: ' + (e.name || '不明') + '）';
     warn.style.display = 'block';
   } finally {
@@ -182,18 +217,19 @@ function stopCamera() {
   frame.style.display = 'none';
   toggleBtn.textContent = 'カメラを起動';
   toggleBtn.classList.remove('stop');
+  closeScore();
 }
 toggleBtn.onclick = () => scanning ? stopCamera() : startCamera();
 
 // ---- 読み取りループ ----
 function tick() {
   if (!scanning) return;
-  if (typeof jsQR !== 'function') {   // ライブラリが読み込めていない場合の保険
-    warn.textContent = '読み取り部品(jsQR)を読み込めませんでした。通信環境を確認し、ページを再読み込みしてください。';
+  if (typeof jsQR !== 'function') {
+    warn.textContent = '読み取り部品(jsQR)を読み込めませんでした。通信環境を確認し、再読み込みしてください。';
     warn.style.display = 'block';
     return;
   }
-  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+  if (!paused && video.readyState === video.HAVE_ENOUGH_DATA) {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -204,26 +240,87 @@ function tick() {
   rafId = requestAnimationFrame(tick);
 }
 
-// ---- 1件読み取ったときの処理 ----
+// ---- QRを1件読み取ったとき ----
 function handleScan(value) {
   const now = Date.now();
-  // 同じQRを3秒以内に連続で読んだら無視
   if (value === lastValue && now - lastTime < 3000) return;
   lastValue = value; lastTime = now;
 
-  // QRの中身は「生徒ID,名前」を想定。カンマが無ければ全体をIDとして扱う
-  const [id, ...rest] = value.split(',');
+  const [idPart, ...rest] = value.split(',');
+  const id = idPart.trim();
   const name = rest.join(',').trim();
-  const sid = id.trim();
-  const ts = new Date();
+  if (!id) return;
 
   beep();
-  showResult('ok', name || sid, sid, ts);
+  if (getCfg().mode === 'score') {
+    openScore(id, name);          // 点数モード：入力パネルを出す
+  } else {
+    sendRecord(id, name, 'check', null);   // チェックモード：即記録
+  }
+}
 
-  const entry = { id: sid, name, ts, status: 'pending' };
+// ---- 点数入力パネル ----
+function openScore(id, name) {
+  pending = { id, name };
+  paused = true;                  // 入力中はスキャンを止める
+  scoreWho.textContent = (name || id) + ' さん';
+  scoreInput.value = '';
+  scorePanel.classList.add('show');
+  setTimeout(() => scoreInput.focus(), 100);
+}
+function closeScore() {
+  scorePanel.classList.remove('show');
+  pending = null;
+  paused = false;
+  lastValue = '';                 // 同じ生徒をすぐ読み直せるように
+}
+$('scoreCancel').onclick = closeScore;
+$('scoreSave').onclick = () => {
+  if (!pending) return;
+  const v = scoreInput.value.trim();
+  if (v === '' || isNaN(Number(v))) { alert('点数を数字で入力してください'); return; }
+  sendRecord(pending.id, pending.name, 'score', Number(v));
+  closeScore();
+};
+
+// ---- 記録を送信 ----
+function sendRecord(id, name, mode, score) {
+  const entry = { id, name, ts: new Date(), mode, score, status: 'pending', value: '' };
   log.unshift(entry);
   renderLog();
-  sendToSheet(entry);
+  postToSheet(entry);
+}
+
+async function postToSheet(entry) {
+  const cfg = getCfg();
+  if (!cfg.url) {
+    entry.status = 'failed'; renderLog();
+    showResult('err', '連携URL未設定', '右上の ⚙ から登録してください', entry.ts);
+    return;
+  }
+  try {
+    const res = await fetch(cfg.url, {
+      method: 'POST',
+      body: JSON.stringify({ id: entry.id, name: entry.name, mode: entry.mode, score: entry.score })
+    });
+    const data = await res.json().catch(() => ({ status: 'ok' }));
+    const big = data.name || entry.name || entry.id;
+    if (data.status === 'duplicate') {
+      entry.status = 'duplicate'; entry.value = data.value;
+      showResult('dup', big, '本日は記録済みです（' + (data.date || '') + '）', entry.ts);
+    } else if (data.status === 'error') {
+      entry.status = 'failed';
+      showResult('err', big, '記録できませんでした', entry.ts);
+    } else {
+      entry.status = 'synced'; entry.value = data.value;
+      const label = entry.mode === 'score' ? (data.value + ' 点') : '✓';
+      showResult('ok', big, '記録しました ' + label + '（' + (data.date || '') + '）', entry.ts);
+    }
+  } catch (e) {
+    entry.status = 'failed';
+    showResult('err', entry.name || entry.id, '送信できませんでした', entry.ts);
+  }
+  renderLog();
 }
 
 function showResult(kind, big, sub, ts) {
@@ -236,33 +333,13 @@ function renderLog() {
   count.textContent = `(${log.length}件)`;
   logList.innerHTML = log.slice(0, 30).map(e => {
     const time = e.ts.toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' });
-    const sync = e.status === 'synced' ? '✓ 記録済'
+    const sync = e.status === 'synced' ? '✓ 記録'
+               : e.status === 'duplicate' ? '本日記録済み'
                : e.status === 'failed' ? '⚠ 未送信' : '… 送信中';
-    return `<li class="${e.status}"><span>${esc(e.name || e.id)}</span>
+    const val = e.mode === 'score' && e.value !== '' ? `<span class="val">${esc(e.value)}点</span>` : '';
+    return `<li class="${e.status}"><span>${esc(e.name || e.id)}${val}</span>
       <span><span class="t">${time}</span> <span class="sync">${sync}</span></span></li>`;
   }).join('');
-}
-
-// ---- スプレッドシートへ送信 ----
-async function sendToSheet(entry) {
-  const cfg = getCfg();
-  if (!cfg.url) {
-    entry.status = 'failed'; renderLog();
-    warn.textContent = '連携URLが未設定です。右上の ⚙ から設定してください。';
-    warn.style.display = 'block';
-    return;
-  }
-  try {
-    const res = await fetch(cfg.url, {
-      method: 'POST',
-      body: JSON.stringify({ id: entry.id, name: entry.name, ts: entry.ts.toISOString() })
-    });
-    const data = await res.json().catch(() => ({ status: 'ok' }));
-    entry.status = data.status === 'error' ? 'failed' : 'synced';
-  } catch (e) {
-    entry.status = 'failed';
-  }
-  renderLog();
 }
 
 // ---- 効果音 ----
@@ -288,19 +365,23 @@ $('settingsBtn').onclick = () => {
   const cfg = getCfg();
   $('urlInput').value = cfg.url;
   $('soundChk').checked = cfg.sound;
+  document.querySelectorAll('input[name=mode]').forEach(r => r.checked = (r.value === cfg.mode));
   dlg.showModal();
 };
 $('cancelBtn').onclick = () => dlg.close();
 $('saveBtn').onclick = () => {
   localStorage.setItem('gas_url', $('urlInput').value.trim());
   localStorage.setItem('sound', $('soundChk').checked ? 'on' : 'off');
+  const m = document.querySelector('input[name=mode]:checked');
+  localStorage.setItem('mode', m ? m.value : 'check');
   dlg.close();
   warn.style.display = 'none';
+  applyMode();
 };
 
-// 初回起動時、URL未設定なら案内
+applyMode();
 if (!getCfg().url) {
-  warn.textContent = '初回設定: 右上の ⚙ からスプレッドシートの連携URLを登録してください。';
+  warn.textContent = '初回設定: 右上の ⚙ から連携URLを登録してください。';
   warn.style.display = 'block';
 }
 </script>

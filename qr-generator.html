@@ -5,20 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>QRコード作成 — 提出チェック</title>
 <style>
-  :root { --green:#1d9e75; --gray:#5f5e5a; --line:#e3e1da; }
+  :root { --green:#1d9e75; --gray:#5f5e5a; --line:#e3e1da; --red:#c0392b; }
   * { box-sizing: border-box; }
   body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Segoe UI", sans-serif;
     margin: 0; background: #f4f2ec; color: #2c2c2a; }
   header { background: var(--green); color: #fff; padding: 14px 16px; font-size: 17px; font-weight: 600; }
-  main { max-width: 800px; margin: 0 auto; padding: 16px; }
+  main { max-width: 820px; margin: 0 auto; padding: 16px; }
   .card { background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 18px; margin-bottom: 16px; }
   .card h2 { font-size: 15px; margin: 0 0 8px; }
   .card p { font-size: 13px; color: var(--gray); margin: 0 0 12px; line-height: 1.6; }
-  textarea { width: 100%; min-height: 160px; padding: 12px; border: 1px solid var(--line);
+  label.h { display:block; font-size:13px; font-weight:600; margin: 10px 0 6px; }
+  input[type=url] { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+  textarea { width: 100%; min-height: 120px; padding: 12px; border: 1px solid var(--line);
     border-radius: 10px; font-size: 14px; font-family: ui-monospace, monospace; resize: vertical; }
   button { background: var(--green); color: #fff; border: none; padding: 13px 20px;
-    border-radius: 10px; font-size: 15px; font-weight: 600; margin-top: 12px; }
+    border-radius: 10px; font-size: 15px; font-weight: 600; margin-top: 12px; margin-right: 8px; }
   button.sub { background: #eee; color: #333; }
+  details { margin-top: 12px; }
+  summary { font-size: 13px; color: var(--gray); cursor: pointer; }
+  .msg { font-size: 13px; margin-top: 10px; padding: 10px 12px; border-radius: 10px; display: none; }
+  .msg.err { background:#fdeceb; color:var(--red); display:block; }
+  .msg.ok { background:#e9f7f1; color:#0f6e56; display:block; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
   .qr { border: 1px solid var(--line); border-radius: 12px; padding: 14px 10px; text-align: center; background:#fff; }
   .qr canvas, .qr img { width: 130px !important; height: 130px !important; }
@@ -35,16 +42,22 @@
 <header>QRコード作成</header>
 <main>
   <div class="card">
-    <h2>名簿を入力</h2>
-    <p>1行に1人ずつ「生徒ID,名前」の形式で入力してください。<br>
-       例: <code>2026-A-01,山田太郎</code></p>
-    <textarea id="input">2026-A-01,山田太郎
-2026-A-02,佐藤花子
-2026-A-03,鈴木一郎</textarea>
+    <h2>名簿からQRコードを作成</h2>
+    <p>読み取りアプリと同じ「連携URL」を入れて、スプレッドシートに貼った名簿（生徒ID・名前）からQRを作ります。</p>
+    <label class="h" for="urlInput">連携URL（末尾が /exec）</label>
+    <input id="urlInput" type="url" placeholder="https://script.google.com/macros/s/.../exec">
     <div>
-      <button id="genBtn">QRコードを作成</button>
+      <button id="loadBtn">名簿を読み込んでQRを作成</button>
       <button class="sub" id="printBtn">印刷する</button>
     </div>
+    <div class="msg" id="msg"></div>
+
+    <details>
+      <summary>うまく読み込めないとき：名簿を直接貼り付けて作る</summary>
+      <p style="margin-top:10px;">1行に1人ずつ「生徒ID,名前」。例: <code>2026-A-01,山田太郎</code></p>
+      <textarea id="manual" placeholder="2026-A-01,山田太郎&#10;2026-A-02,佐藤花子"></textarea>
+      <button class="sub" id="manualBtn">貼り付けた名簿でQRを作成</button>
+    </details>
   </div>
 
   <div class="grid" id="output"></div>
@@ -53,30 +66,59 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
 const $ = id => document.getElementById(id);
+const out = $('output'), msg = $('msg');
 
-function generate() {
-  const out = $('output');
+// 読み取りアプリと同じ端末なら、保存済みの連携URLを自動で入れる
+$('urlInput').value = localStorage.getItem('gas_url') || '';
+
+function setMsg(text, kind) { msg.textContent = text; msg.className = 'msg ' + (kind || ''); }
+
+function render(list) {
   out.innerHTML = '';
-  const lines = $('input').value.split('\n').map(l => l.trim()).filter(Boolean);
-  lines.forEach(line => {
-    const [id, ...rest] = line.split(',');
-    const name = rest.join(',').trim();
-    const card = document.createElement('div');
-    card.className = 'qr';
-    const box = document.createElement('div');
-    card.appendChild(box);
-    // QRの中身は名簿の行そのまま（「生徒ID,名前」）
-    new QRCode(box, { text: line, width: 130, height: 130, correctLevel: QRCode.CorrectLevel.M });
-    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = name || id.trim();
-    const sid = document.createElement('div'); sid.className = 'id'; sid.textContent = id.trim();
+  if (!list.length) { setMsg('名簿が空です。スプレッドシートのA列・B列に生徒ID・名前を入れてください。', 'err'); return; }
+  list.forEach(item => {
+    const id = String(item.id).trim();
+    const name = String(item.name || '').trim();
+    if (!id) return;
+    const text = name ? (id + ',' + name) : id;   // QRの中身
+    const card = document.createElement('div'); card.className = 'qr';
+    const box = document.createElement('div'); card.appendChild(box);
+    new QRCode(box, { text: text, width: 130, height: 130, correctLevel: QRCode.CorrectLevel.M });
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = name || id;
+    const sid = document.createElement('div'); sid.className = 'id'; sid.textContent = id;
     card.appendChild(nm); card.appendChild(sid);
     out.appendChild(card);
   });
+  setMsg(list.length + ' 人分のQRコードを作成しました。「印刷する」で印刷できます。', 'ok');
 }
 
-$('genBtn').onclick = generate;
+// スプレッドシートの名簿を読み込む
+$('loadBtn').onclick = async () => {
+  const url = $('urlInput').value.trim();
+  if (!url) { setMsg('連携URLを入力してください。', 'err'); return; }
+  localStorage.setItem('gas_url', url);
+  setMsg('名簿を読み込んでいます…', '');
+  try {
+    const res = await fetch(url + (url.includes('?') ? '&' : '?') + 'action=roster');
+    const data = await res.json();
+    if (data.status !== 'ok') throw new Error(data.message || '取得に失敗しました');
+    render(data.roster || []);
+  } catch (e) {
+    setMsg('読み込めませんでした（' + e.message + '）。下の「名簿を直接貼り付けて作る」をお使いください。', 'err');
+  }
+};
+
+// 手入力からQR作成
+$('manualBtn').onclick = () => {
+  const lines = $('manual').value.split('\n').map(l => l.trim()).filter(Boolean);
+  const list = lines.map(l => {
+    const [id, ...rest] = l.split(',');
+    return { id: id.trim(), name: rest.join(',').trim() };
+  });
+  render(list);
+};
+
 $('printBtn').onclick = () => window.print();
-generate();
 </script>
 </body>
 </html>
