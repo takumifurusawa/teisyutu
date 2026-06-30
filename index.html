@@ -155,7 +155,7 @@ const ctx = canvas.getContext('2d', { willReadFrequently: true });
 let stream = null, scanning = false, paused = false, rafId = null, starting = false;
 let lastValue = '', lastTime = 0;
 let log = [];
-let pending = null;   // 点数入力中の生徒 {id,name}
+let pending = null;   // 点数入力中の生徒 {grade,cls,num,name}
 
 // ---- 設定（端末に保存）----
 function getCfg() {
@@ -241,29 +241,37 @@ function tick() {
 }
 
 // ---- QRを1件読み取ったとき ----
+// QRの中身は「学年,クラス,出席番号,名前」を想定
 function handleScan(value) {
   const now = Date.now();
   if (value === lastValue && now - lastTime < 3000) return;
   lastValue = value; lastTime = now;
 
-  const [idPart, ...rest] = value.split(',');
-  const id = idPart.trim();
-  const name = rest.join(',').trim();
-  if (!id) return;
+  const parts = value.split(',');
+  const s = { grade: (parts[0]||'').trim(), cls: (parts[1]||'').trim(),
+              num: (parts[2]||'').trim(), name: parts.slice(3).join(',').trim() };
+  if (!s.grade && !s.cls && !s.num) return;
 
   beep();
   if (getCfg().mode === 'score') {
-    openScore(id, name);          // 点数モード：入力パネルを出す
+    openScore(s);                 // 点数モード：入力パネルを出す
   } else {
-    sendRecord(id, name, 'check', null);   // チェックモード：即記録
+    sendRecord(s, 'check', null); // チェックモード：即記録
   }
 }
 
+// 生徒の見出し表示（例: 山田太郎（1年2組15番））
+function label(s) {
+  const who = [s.grade && s.grade + '年', s.cls && s.cls + '組', s.num && s.num + '番']
+              .filter(Boolean).join('');
+  return s.name ? s.name + (who ? '（' + who + '）' : '') : who;
+}
+
 // ---- 点数入力パネル ----
-function openScore(id, name) {
-  pending = { id, name };
+function openScore(s) {
+  pending = s;
   paused = true;                  // 入力中はスキャンを止める
-  scoreWho.textContent = (name || id) + ' さん';
+  scoreWho.textContent = label(s);
   scoreInput.value = '';
   scorePanel.classList.add('show');
   setTimeout(() => scoreInput.focus(), 100);
@@ -279,13 +287,14 @@ $('scoreSave').onclick = () => {
   if (!pending) return;
   const v = scoreInput.value.trim();
   if (v === '' || isNaN(Number(v))) { alert('点数を数字で入力してください'); return; }
-  sendRecord(pending.id, pending.name, 'score', Number(v));
+  sendRecord(pending, 'score', Number(v));
   closeScore();
 };
 
 // ---- 記録を送信 ----
-function sendRecord(id, name, mode, score) {
-  const entry = { id, name, ts: new Date(), mode, score, status: 'pending', value: '' };
+function sendRecord(s, mode, score) {
+  const entry = { grade: s.grade, cls: s.cls, num: s.num, name: s.name,
+                  ts: new Date(), mode, score, status: 'pending', value: '' };
   log.unshift(entry);
   renderLog();
   postToSheet(entry);
@@ -301,10 +310,11 @@ async function postToSheet(entry) {
   try {
     const res = await fetch(cfg.url, {
       method: 'POST',
-      body: JSON.stringify({ id: entry.id, name: entry.name, mode: entry.mode, score: entry.score })
+      body: JSON.stringify({ grade: entry.grade, cls: entry.cls, num: entry.num,
+                             name: entry.name, mode: entry.mode, score: entry.score })
     });
     const data = await res.json().catch(() => ({ status: 'ok' }));
-    const big = data.name || entry.name || entry.id;
+    const big = data.name || label(entry);
     if (data.status === 'duplicate') {
       entry.status = 'duplicate'; entry.value = data.value;
       showResult('dup', big, '本日は記録済みです（' + (data.date || '') + '）', entry.ts);
@@ -313,12 +323,12 @@ async function postToSheet(entry) {
       showResult('err', big, '記録できませんでした', entry.ts);
     } else {
       entry.status = 'synced'; entry.value = data.value;
-      const label = entry.mode === 'score' ? (data.value + ' 点') : '✓';
-      showResult('ok', big, '記録しました ' + label + '（' + (data.date || '') + '）', entry.ts);
+      const vlabel = entry.mode === 'score' ? (data.value + ' 点') : '✓';
+      showResult('ok', big, '記録しました ' + vlabel + '（' + (data.date || '') + '）', entry.ts);
     }
   } catch (e) {
     entry.status = 'failed';
-    showResult('err', entry.name || entry.id, '送信できませんでした', entry.ts);
+    showResult('err', label(entry), '送信できませんでした', entry.ts);
   }
   renderLog();
 }
@@ -337,7 +347,7 @@ function renderLog() {
                : e.status === 'duplicate' ? '本日記録済み'
                : e.status === 'failed' ? '⚠ 未送信' : '… 送信中';
     const val = e.mode === 'score' && e.value !== '' ? `<span class="val">${esc(e.value)}点</span>` : '';
-    return `<li class="${e.status}"><span>${esc(e.name || e.id)}${val}</span>
+    return `<li class="${e.status}"><span>${esc(e.name || label(e))}${val}</span>
       <span><span class="t">${time}</span> <span class="sync">${sync}</span></span></li>`;
   }).join('');
 }

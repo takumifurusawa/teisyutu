@@ -54,8 +54,8 @@
 
     <details>
       <summary>うまく読み込めないとき：名簿を直接貼り付けて作る</summary>
-      <p style="margin-top:10px;">1行に1人ずつ「生徒ID,名前」。例: <code>2026-A-01,山田太郎</code></p>
-      <textarea id="manual" placeholder="2026-A-01,山田太郎&#10;2026-A-02,佐藤花子"></textarea>
+      <p style="margin-top:10px;">1行に1人ずつ「学年,クラス,出席番号,名前」。例: <code>1,2,15,山田太郎</code></p>
+      <textarea id="manual" placeholder="1,2,15,山田太郎&#10;1,2,16,佐藤花子"></textarea>
       <button class="sub" id="manualBtn">貼り付けた名簿でQRを作成</button>
     </details>
   </div>
@@ -75,21 +75,26 @@ function setMsg(text, kind) { msg.textContent = text; msg.className = 'msg ' + (
 
 function render(list) {
   out.innerHTML = '';
-  if (!list.length) { setMsg('名簿が空です。スプレッドシートのA列・B列に生徒ID・名前を入れてください。', 'err'); return; }
+  if (!list.length) { setMsg('名簿が空です。スプレッドシートのA〜D列に 学年・クラス・出席番号・名前 を入れてください。', 'err'); return; }
+  let made = 0;
   list.forEach(item => {
-    const id = String(item.id).trim();
-    const name = String(item.name || '').trim();
-    if (!id) return;
-    const text = name ? (id + ',' + name) : id;   // QRの中身
+    const grade = String(item.grade || '').trim();
+    const cls   = String(item.cls   || '').trim();
+    const num   = String(item.num   || '').trim();
+    const name  = String(item.name  || '').trim();
+    if (!grade && !cls && !num) return;
+    const text = [grade, cls, num, name].join(',');   // QRの中身「学年,クラス,出席番号,名前」
+    const who = [grade && grade + '年', cls && cls + '組', num && num + '番'].filter(Boolean).join('');
     const card = document.createElement('div'); card.className = 'qr';
     const box = document.createElement('div'); card.appendChild(box);
     new QRCode(box, { text: text, width: 130, height: 130, correctLevel: QRCode.CorrectLevel.M });
-    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = name || id;
-    const sid = document.createElement('div'); sid.className = 'id'; sid.textContent = id;
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = name || who;
+    const sid = document.createElement('div'); sid.className = 'id'; sid.textContent = who;
     card.appendChild(nm); card.appendChild(sid);
     out.appendChild(card);
+    made++;
   });
-  setMsg(list.length + ' 人分のQRコードを作成しました。「印刷する」で印刷できます。', 'ok');
+  setMsg(made + ' 人分のQRコードを作成しました。「印刷する」で印刷できます。', 'ok');
 }
 
 // スプレッドシートの名簿を読み込む
@@ -112,8 +117,9 @@ $('loadBtn').onclick = async () => {
 $('manualBtn').onclick = () => {
   const lines = $('manual').value.split('\n').map(l => l.trim()).filter(Boolean);
   const list = lines.map(l => {
-    const [id, ...rest] = l.split(',');
-    return { id: id.trim(), name: rest.join(',').trim() };
+    const p = l.split(',');
+    return { grade: (p[0]||'').trim(), cls: (p[1]||'').trim(),
+             num: (p[2]||'').trim(), name: p.slice(3).join(',').trim() };
   });
   render(list);
 };
